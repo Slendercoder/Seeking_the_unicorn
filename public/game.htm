@@ -1,0 +1,205 @@
+ <!doctype html>
+<html>
+
+  <head>
+    <script type="text/javascript" src="js/raphael.js"></script>
+    <title>Locations</title>
+  </head>
+
+  <body>
+    <div id="container" style="font-size: 20px">
+      <h2>Buscando un unicornio</h2>
+      Da click en los cuadrados para decir si el unicornio está presente o ausente:
+      <h5></h5>
+      <div id="header">
+        <span id="canvas_container" style="float: left; width: 45%; text-align: left;"></span>
+      </div>
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            Mi decisión actual es que el unicornio está:
+          </tr>
+          <tr>
+            <td><input type="button" value="Presente" name="CatA" id="submitPresent" class="btn" /></td>
+            <td><input type="button" value="Ausente" name="CatB" id="submitAbsent" class="btn" /></td>
+          </tr>
+        </table>
+        <input type="button" value="Somenter decisión final" name="DONE" id="DONE" class="btn" />
+      </div>
+
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            <td>
+              Tu decisión actual es:
+            </td>
+            <td>
+              <span id="PlayersGuess" style="color: red;"></span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            <td>
+              La decisión actual de tu compañero es:
+            </td>
+            <td>
+              <span id="PartnersGuess" style="color: red;"></span>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="clear:both;"></div>
+
+      <div>
+        <span id='partners_status' style="color: green;"></span>
+      </div>
+
+    </div>
+
+  </body>
+
+
+  <script type="text/javascript">
+
+
+    window.onload = function() {
+
+        if ('undefined' !== typeof window.paper) return;
+
+        var node = parent.node;
+        var me = node.player.id; // My id.
+
+        // Create the square for the locations and score using RAPHAEL.JS
+        var paper = new Raphael(document.getElementById('canvas_container'), 600, 300);
+
+        // For reference to remove it outside of function where it is defined.
+        var getClickCbReference;
+
+        console.log('LOADING PAGE SCRIPT');
+
+        // Draw Settings.
+        window.mySettingsCb = function() {
+
+            // Keep commented, was creating problems.
+            // console.log('mmmmyset');
+            // console.log(settings);
+
+            var width = node.game.settings.width;                 // The width of the square on screen
+            var num_locations = node.game.settings.num_locations; // The number of locations in a row or column
+
+            // Get the value of required variables
+            var other_player = node.game.other_player;  // The other player's id
+
+            var unicorn = node.game.unicorn;            // True if there is a unicorn; false otherwise
+            var x_unicorn = node.game.x_unicorn;        // The position of the unicorn in the x axis
+            var y_unicorn = node.game.y_unicorn;        // The position of the unicorn in the y axis
+
+            var step; // The length of each small square on the paper
+            step = width / num_locations;
+
+            // Set the total score to 100%. Will diminish for each location
+            // that both players checked
+            var score = 1;
+
+            var draw_squares;
+            draw_squares = function() {
+                paper.clear();
+                paper.rect(0, 0, width, width);
+                paper.rect(width * 1.15, 0, width/4, width).attr({fill: "blue"});
+                paper.text(width * 1.45, width/2, "<= Puntos basados\n en lugares\n comunes")
+                    .attr({'text-anchor': 'start', 'font-size': 16});
+
+                // Create the locations
+                for(var j = 0; j < width; j+=step) {
+                    for(var i = 0; i < width; i+=step) {
+                        paper.rect(i, j, step, step);
+                    }
+                }
+            }; // end function draw_squares.
+
+            // Draw the squares and the bar with points to score
+            draw_squares();
+
+            var getClickPosition;
+            getClickCbReference = getClickPosition = function(e) {
+
+                // Determine the location that is being clicked on
+                var xPosition = e.clientX;
+                var yPosition = e.clientY;
+                var aux1 = document.getElementById('canvas_container').offsetLeft;
+                var aux2 = document.getElementById('canvas_container').offsetTop;
+                var location_by_x = Math.floor((xPosition - aux1) / step);
+                var location_by_y = Math.floor((yPosition - aux2) / step);
+
+                // Check that click occurs inside big square
+                if (location_by_x >= num_locations) {
+                    return;
+                }
+                if (location_by_y >= num_locations) {
+                    return;
+                }
+
+                // Send info that a click occurred and where.
+
+                // Locally.
+                node.emit('checkLocation_me', [location_by_x, location_by_y]);
+
+                // To other player.
+                node.say('checkLocation_partner', other_player, [location_by_x, location_by_y]);
+
+                // Change score proportionally to the number of locations
+                // clicked by both players
+                if (score > 0) {
+                    // Check if location was visited by partner
+                    if (node.game.where_partner[location_by_y][location_by_x] != 0) {
+                        score -= 1/ (num_locations * num_locations);
+                        paper.rect(width * 1.15, 0, width/4, width * (1- score)).attr({fill: "white"});
+                    }
+                }
+
+                // Checking if unicorn is discovered
+                found = false;
+                if (unicorn == true) {
+                    if (location_by_x == x_unicorn) {
+                        if (location_by_y == y_unicorn) {
+                            found = true;
+                            paper.image('unicorn.jpg',
+                                        x_unicorn * step + 1,
+                                        y_unicorn * step + 1, 60, 60);
+                            //paper.circle(x_unicorn * step + 0.5 * step,
+                            //y_unicorn * step + 0.5 * step, 14).attr({fill: "red"});
+                        }
+                    }
+                }
+
+                if (found == false) {
+                    // Fill the location because there is no unicorn in this location
+                    var X = location_by_x * step;
+                    var Y = location_by_y * step;
+                    paper.text(X + step/2, Y + step/2, "Empty");
+                    //paper.rect(X, Y, step, step).attr({fill: "green"});
+                }
+            } // end function getClickPosition
+
+            // Listening for click on locations
+            document.getElementById('canvas_container')
+                .addEventListener("click", getClickPosition, false);
+        };
+
+        // Dibuja los cuadrados, los puntos basados en clicks, etc.
+        node.events.stage.on('mySettings', mySettingsCb); // end node.on 'mysettings'
+
+    } // end onload function
+  </script>
+
+</html>

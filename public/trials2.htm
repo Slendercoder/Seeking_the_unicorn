@@ -1,0 +1,392 @@
+ <!doctype html>
+<html>
+
+  <head>
+    <script type="text/javascript" src="js/raphael.js"></script>
+    <title>Locations</title>
+  </head>
+
+  <body>
+    <div id="container" style="font-size: 20px">
+      <h2>Seeking the Unicorn</h2>
+      Click on squares to tell whether the unicorn is present or absent:
+      <br>
+      Important: A blue square means that both players have visited it.
+      <h5></h5>
+      <div id="header">
+        <span id="canvas_container" style="float: left; width: 45%; text-align: left;"></span>
+      </div>
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            My current guess is that the unicorn is:
+          </tr>
+          <tr>
+            <td><input type="button" value="Present" name="CatA" id="submitPresent" class="btn" /></td>
+            <td><input type="button" value="Absent" name="CatB" id="submitAbsent" class="btn" /></td>
+          </tr>
+        </table>
+        <input type="button" value="Submit final decision" name="DONE" id="DONE" class="btn" />
+      </div>
+
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            <td>
+              Your current decision is:
+            </td>
+            <td>
+              <span id="PlayersGuess" style="color: red;"></span>
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="clear:both;"></div>
+
+      <div>
+        <table>
+          <tr>
+            <td>
+              Your partner's current decision is:
+            </td>
+            <td>
+              <span id="PartnersGuess" style="color: red;"></span>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="clear:both;"></div>
+
+      <div>
+        <span id='partners_status' style="color: green;"></span>
+      </div>
+
+    </div>
+
+    <div id="container2" style="font-size: 20px; display: none">
+      <h2>Seeking the unicorn</h2>
+      <h3>Your answer is <span id="answer"></span></h3>
+      <table class="tg">
+        <tr>
+          <th class="tg-yw4l">You get</th>
+          <th class="tg-yw4l"><span id="pointsC">XXX</span> points</th>
+          <th class="tg-yw4l"> - </th>
+          <th class="tg-yw4l"><span id="pointsA">YYY</span> points</th>
+          <th class="tg-yw4l"> = </th>
+          <th class="tg-yw4l"><span id="Score">AAA</span> points</th>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">for</td>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">for</td>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l"><span id="correct_incorrect"></span></td>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">common</td>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">answer</td>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">locations</td>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">with</td>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l">unicorn</td>
+        </tr>
+        <tr>
+          <td class="tg-yw4l"></td>
+          <td class="tg-yw4l"><span id="with_without"></td>
+        </tr>
+      </table>
+      <h3>You and your partner clicked on the same locations <span id="Joint" style="color: red";>BBB</span> time(s).</h3>
+      <span id="canvas_container1"></span>
+      <div style="clear:both;"></div>
+      <input type="button" value="Ok, I am ready for the next round!" name="DONE1" id="DONE1" class="btn" />
+    </div>
+
+
+
+  </body>
+
+
+  <script type="text/javascript">
+
+
+    window.onload = function() {
+
+        // Page cached, we do not need to do anything.
+        if ('undefined' !== typeof window.paper) {
+            console.log('Page cached. Nothing to do.');
+            return;
+        }
+        else {
+            console.log('LOADING PAGE SCRIPT');
+        }
+
+        // Shared variables.
+
+        // Node, and my id, (the other player's id---didn't recognize it here).
+        var node = parent.node;
+        var me = node.player.id;
+        // var other_player = node.game.other_player;
+        // console.log('other_player ' + other_player)
+
+        // Info to draw the squares.
+        var width, num_locations, step;
+        // The width of the square on screen
+        width = node.game.settings.width;
+        // The number of locations in a row or column
+        num_locations = node.game.settings.num_locations;
+        // The length of each small square on the paper
+        step = width / num_locations;
+
+        // Set the total score to 100%. Will diminish for each location
+        // that both players checked
+        var score = 1;
+
+        // Create the square for the locations and score using RAPHAEL.JS
+        var paper = new Raphael(document.getElementById('canvas_container'), 2*width, width);
+        var paper1 = new Raphael(document.getElementById('canvas_container1'), 500, 140);
+
+
+//         // Stop Listening.
+//         window.stopListening = function(settings) {
+//             // document.getElementById('canvas_container')
+//             //     .removeEventListener("click", getClickCbReference, false);
+//             paper.clear();
+//             // paper.text(150, 120, 'Esperando a que el otro jugador termine...')
+//             //     .attr({'text-anchor': 'start', 'font-size': 18});
+//             //                          draw_squares();
+//         };
+
+        // Functions to control/draw/reset squares and scores.
+
+        window.draw_squares = function() {
+            var i, j;
+            // Draw.
+            paper.clear();
+            paper.rect(0, 0, width, width);
+            paper.rect(width * 1.15, 0, width/4, width).attr({fill: "#ffff99"});
+            paper.text(width * 1.45, width/2, "<= Points based\n on common\n locations")
+                .attr({'text-anchor': 'start', 'font-size': 16});
+
+            // Create the locations
+            for (j = 0; j < width; j+=step) {
+                for (i = 0; i < width; i+=step) {
+                    paper.rect(i, j, step, step);
+                }
+            }
+        }; // end function draw_squares.
+
+        // Get click position.
+        window.getClickPosition = function(e) {
+            // Get the value of required variables
+
+            // True if there is a unicorn; false otherwise.
+            var unicorn = node.game.unicorn;
+            // The position of the unicorn in the x and y axis
+            var x_unicorn = node.game.x_unicorn;
+            var y_unicorn = node.game.y_unicorn;
+
+            var other_player = node.game.other_player;
+            // console.log('other_player ' + other_player)
+
+            // // Set the total score to 100%. Will diminish for each location
+            // // that both players checked
+            // var score = 1;
+            // Determine the location that is being clicked on
+            var xPosition = e.clientX;
+            var yPosition = e.clientY;
+            var aux1 = document.getElementById('canvas_container').offsetLeft;
+            var aux2 = document.getElementById('canvas_container').offsetTop;
+            var location_by_x = Math.floor((xPosition - aux1) / step);
+            var location_by_y = Math.floor((yPosition - aux2) / step);
+
+            // Check that click occurs inside big square
+            if (location_by_x >= num_locations) {
+                return;
+            }
+            if (location_by_y >= num_locations) {
+                return;
+            }
+
+            // Send info that a click occurred and where.
+
+            // Locally.
+            node.emit('checkLocation_me', [location_by_x, location_by_y]);
+
+            // console.log('other_player ' + other_player);
+            // To other player.
+            node.say('checkLocation_partner', other_player, [location_by_x, location_by_y]);
+
+            // Change score proportionally to the number of locations
+            // clicked by both players
+            // console.log('Score: ' + score);
+            // console.log('where_partner: ' + node.game.where_partner[location_by_y][location_by_x]);
+            if (score > 0) {
+                // Check if location was visited by partner
+                if (node.game.where_partner[location_by_y][location_by_x] != 0) {
+                  // Tell other_player to diminish the scorebar
+                  // and display which square is commonly visited
+                  node.say('diminish_scorebar', other_player, [location_by_x, location_by_y, step])
+                  score -= 1/ (num_locations * num_locations);
+                  // Diminish scorebar
+                  paper.rect(width * 1.15, 0, width/4, width * (1- score)).attr({fill: "white"});
+                  // Shade commonly visited location
+                  paper.rect(location_by_x * step, location_by_y * step, step, step).attr({fill: "#6699cc"});
+                }
+            }
+
+            // Checking if unicorn is discovered
+            found = false;
+            if (unicorn == true) {
+                if (location_by_x == x_unicorn) {
+                    if (location_by_y == y_unicorn) {
+                        found = true;
+                        paper.image('unicorn.png',
+                                    x_unicorn * step + 1,
+                                    y_unicorn * step + 1, 0.95*step, 0.95*step);
+                        //paper.circle(x_unicorn * step + 0.5 * step,
+                        //y_unicorn * step + 0.5 * step, 14).attr({fill: "red"});
+                    }
+                }
+            }
+
+            if (found == false) {
+                // Fill the location because there is no unicorn in this location
+                var X = location_by_x * step;
+                var Y = location_by_y * step;
+                paper.text(X + step/2, Y + step/2, "Empty");
+                //paper.rect(X, Y, step, step).attr({fill: "green"});
+            }
+        }; // end function getClickPosition
+
+
+        // Draw Settings.
+        window.mySettingsCb = function() {
+            // Draw the squares and the bar with points to score
+            draw_squares();
+        };
+
+        // Diminish score bar and display commonly visited square
+        window.drawCVL = function(msg) {
+          console.log('Intentando leer datos commonly visited location');
+          console.log(msg);
+          var MSG = msg;
+          x = MSG[0];
+          y = MSG[1];
+          step = MSG[2];
+          // console.log('Trials2 received the info');
+          score -= 1/ (num_locations * num_locations);
+          // Diminish scorebar
+          paper.rect(width * 1.15, 0, width/4, width * (1- score)).attr({fill: "white"});
+          // Shade commonly visited location --- it overwrites what's in there!
+          paper.rect(x * step, y * step, step, step).attr({fill: "#6699cc"});
+          // Checking if visited location contains unicorn
+          if ((x==node.game.x_unicorn) && (y==node.game.y_unicorn)) {
+            // Put back unicorn in the location
+            paper.image('unicorn.png',
+                        x * step + 1,
+                        y * step + 1, 0.95*step, 0.95*step);
+          }
+          else {
+            paper.text(x * step + step/2, y * step + step/2, "Empty");
+          }
+        };
+
+        // Draw score.
+        window.drawScore = function(msg) {
+            // Clear whatever is in there.
+            paper1.clear();
+
+            var aux = [0];
+            msg = aux.concat(msg);
+
+            // Uses only the last 20 rounds to draw the score
+            if (msg.length > 20) {
+                msg = msg.slice(msg.length - 20, msg.length);
+            }
+
+            // Divide rectangle according to data
+            var minimo = Math.min.apply(Math,msg);
+            var maximo = Math.max.apply(Math,msg);
+            var ancho = 480 / (msg.length - 1);
+            var alto;
+            // String to define path
+            var camino = 'M20 ';
+            if (minimo < 0) {
+                alto = 100 / (maximo - minimo);
+                // Add coordinate for (0, 0)
+                camino = camino + (maximo * alto + 10) + ' ';
+            } else {
+                alto = 100 / maximo;
+                // Add coordinate for (0, 0)
+                camino = camino + '110 ';
+            }
+            // I need first to construct the inverse path
+            // in order to cheat Raphael's path-construction into
+            // making a line.
+            var camino_inverso = '';
+
+            // Construct string to define paths
+            for (var i = 1; i < msg.length; i++) {
+                camino = camino + 'L' + (i * ancho + 20) + ' ';
+                camino = camino + ((maximo - msg[i]) * alto + 10) + ' ';
+                camino_inverso = ((maximo - msg[i]) * alto + 10) + ' ' + camino_inverso;
+                camino_inverso = 'L' + (i * ancho + 20) + ' ' + camino_inverso;
+            }
+            //debugger
+
+            paper1.rect(20, 10, 480, 100);
+            paper1.text(-10, 60, 'Score')
+                .attr({'text-anchor': 'start', 'font-size': 10})
+                .transform('r270');
+            //                  paper1.text(240, 120, camino)
+            paper1.text(240, 120, 'Rounds (last 20)')
+                .attr({'text-anchor': 'start', 'font-size': 10});
+            paper1.path(camino + ' ' + camino_inverso).attr({stroke: "blue"});
+
+        };
+
+        // Add Canvas click listener.
+
+        // Listening for click on locations
+        document.getElementById('canvas_container')
+            .addEventListener("click", getClickPosition, false);
+
+        // Add nodeGame Events listeners.
+
+        // Dibuja los cuadrados, los puntos basados en clicks, etc.
+        node.events.stage.on('mySettings', mySettingsCb); // end node.on 'mysettings'
+
+        // Listen to order to stop listening for clicks, also redraw the squares.
+        node.events.stage.on('clear_paper', function() {
+            paper.clear();
+            draw_squares();
+            score = 1; // Reset the score for the blue bar
+        });
+
+        // Listen to diminish the scorebar
+        // and display which square is commonly visited
+        node.events.stage.on('minus_score', window.drawCVL);
+
+        // Dibuja el puntaje acumulado
+        node.events.stage.on('DrawScore', window.drawScore); // end node.on 'DrawScore'
+
+    } // end onload function
+  </script>
+
+</html>
